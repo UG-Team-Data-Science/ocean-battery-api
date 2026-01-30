@@ -44,48 +44,9 @@ end
 %   instant in this part. 
 
 for i = 1:startup_steps
-    %[m] Major head loss of the discharging phase.
-    H_loss_major_discharging(i) = Major_head_loss_discharging(Q_turbine_a(i), OB_GUI_parameters);
-    
-    %[m] Minor head loss of the discharging phase.
-    H_loss_minor_discharging(i) = Minor_head_loss_discharging(Q_turbine_a(i),OB_GUI_parameters);   
-
-    %[m] Major head loss umbilical cord during the discharging phase. 
-    H_loss_major_umbilical_discharging(i) = Major_head_loss_umbilical(Q_turbine_a(i), OB_GUI_parameters);
-    
-    %[m] Minor head loss umbilical cord during the discharging phase.
-    H_loss_minor_umbilical_discharging(i) = Minor_head_loss_umbilical(Q_turbine_a(i), OB_GUI_parameters);
-    
-    %[m] Total head loss of the discharging phase.
-    H_loss_total_discharging(i) = H_loss_major_discharging(i)  + H_loss_minor_discharging(i) + H_loss_major_umbilical_discharging(i) + H_loss_minor_umbilical_discharging(i);
-    
-    %[m] Vertical difference between the surface of the water in the rigid reservoir and the
-    %surface of the body of water above the system.
-    H_static_discharging(i) = Depth - Water_level_rigid_reservoir(V_wat_rigid_discharging(i), D_rigid, Capacity_rigid); 
-    
-    if H_static_discharging(i)<H_loss_total_discharging(i)
-        error('ERROR: Head loss is larger than the static head. The system will not work because of too much losses.');
-    end
-    
-    %[m] Head on the turbine (this does not yet include the losses incurred in the turbine). 
-    H_turbine(i) = H_static_discharging(i) - H_loss_total_discharging (i);
-    
-    %[m] Head loss of the turbine.
-    H_loss_turbine(i) = H_turbine(i)*N_turbine;
-    
-    %[m] Final head. This is the head that determines the flow through the turbine. The head loss of the turbine is included here. 
-    H_final(i) = H_turbine(i) - H_loss_turbine(i);
-        
-    %[m^3] Volume of water present in the rigid reservoir.
-    V_wat_rigid_discharging(i+1) = V_wat_rigid_discharging(i) + (Q_turbine_a(i)*Delta_t);
-    
-    %[m^3/s] Volumetric flowrate through the turbine. 
-    Q_turbine_no_interp = A_turbine * sqrt(2*g*H_final(i)); %[m^3/s] Calculates the volumetric flowrate 1 second after the current flowrate. 
-    x = [i i+1]; %Creates vector x. This vector contains the current loop number (i) and the next interation number (i+1).
-    y = [Q_turbine_a(i) Q_turbine_no_interp]; %Creates vector y. This vector contains the current flowrate and the flowrate one second later.
-    t_new = linspace(i, i+1, Interp_steps); %Creates vector t_new. This vector contains a number of points (Interp_steps) between i and i+1.
-    Q_turbine_interp = interp1(x,y,t_new); %Linear interpolation between the current flowrate and the flowrate one second later. The number of points is specified by t_new.
-    Q_turbine_a(i+1) = Q_turbine_interp(2); %[m^3/s] Takes the second value of matrix Q_turbine_interp. This is an estimation of the flowrate Delta_t seconds after the current flowrate.  
+    [~, ~, ~, ~, ~, ~, ~, ~, V_wat_rigid_discharging(i+1), ~, Q_turbine_a(i+1)] = ...
+        Discharging_step(Q_turbine_a(i), V_wat_rigid_discharging(i), V_wat_bladder(1), ...
+        OB_GUI_parameters, A_turbine, Interp_steps);
 end
 
 %% Flow during the startup phase
@@ -101,113 +62,24 @@ Q_turbine = linspace(0,Q_turbine_a(startup_steps),startup_steps); %[m^3/s] Linea
 %   "t_open_ball_valve" seconds of operation.  
 
 for i = 1:startup_steps
-    %[m] Major head loss of the discharging phase.
-    H_loss_major_discharging(i) = Major_head_loss_discharging(Q_turbine(i), OB_GUI_parameters);
-    
-    %[m] Minor head loss of the discharging phase.
-    H_loss_minor_discharging(i) = Minor_head_loss_discharging(Q_turbine(i),OB_GUI_parameters);   
-
-    %[m] Major head loss umbilical cord during the discharging phase. 
-    H_loss_major_umbilical_discharging(i) = Major_head_loss_umbilical(Q_turbine(i), OB_GUI_parameters);
-
-    %[m] Minor head loss umbilical cord during the discharging phase.
-    H_loss_minor_umbilical_discharging(i) = Minor_head_loss_umbilical(Q_turbine(i), OB_GUI_parameters);   
-    
-    %[m] Total head loss of the discharging phase.
-    H_loss_total_discharging(i) = H_loss_major_discharging(i)  + H_loss_minor_discharging(i) + H_loss_major_umbilical_discharging(i) + H_loss_minor_umbilical_discharging(i);
-    
-    %[m] Vertical difference between the surface of the water in the rigid reservoir and the
-    %surface of the body of water above the system.
-    H_static_discharging(i) = Depth - Water_level_rigid_reservoir(V_wat_rigid_discharging(i), D_rigid, Capacity_rigid); 
-    
-    if H_static_discharging(i)<H_loss_total_discharging(i)
-        error('ERROR: Head loss is larger than the static head. The system will not work because of too much losses.');
-    end
-    
-    %[m] Head on the turbine (this does not yet include the losses incurred in the turbine). 
-    H_turbine(i) = H_static_discharging(i) - H_loss_total_discharging (i);
-    
-    %[m] Head loss of the turbine.
-    H_loss_turbine(i) = H_turbine(i)*N_turbine;
-    
-    %[m] Final head. This is the head that determines the flow through the turbine. The head loss of the turbine is included here. 
-    H_final(i) = H_turbine(i) - H_loss_turbine(i);
-    
-    %[W] Mechanical output power of the turbine 
-    %REMARK: check this equation, the efficiency of the turbine might be
-    %taken into account two times. One time while calculating the flow and
-    %one time in the equation below. 
-    P_turbine(i) = Q_turbine(i)* H_turbine(i) * Dens_wat * g * N_turbine; 
-    
-    %[W] Electrical power produced by the generator. 
-    P_generator(i) = P_turbine(i) * N_generator;
-        
-    %[m^3] Volume of water present in the rigid reservoir.
-    V_wat_rigid_discharging(i+1) = V_wat_rigid_discharging(i) + (Q_turbine(i)*Delta_t);
-    
-    %[m^3] Volume of water present in the bladder. 
-    V_wat_bladder (i+1) = V_wat_bladder(i) - (Q_turbine(i)*Delta_t);   
+    [H_loss_total_discharging(i), H_loss_minor_discharging(i), H_loss_major_discharging(i), ...
+        H_loss_major_umbilical_discharging(i), H_loss_minor_umbilical_discharging(i), ...
+        H_static_discharging(i), H_turbine(i), P_generator(i), ...
+        V_wat_rigid_discharging(i+1), V_wat_bladder(i+1), ~] = Discharging_step( ...
+        Q_turbine(i), V_wat_rigid_discharging(i), V_wat_bladder(i), ...
+        OB_GUI_parameters, A_turbine, Interp_steps);
 end
 
 %% While loop
 %   The behaviour of the system after the "startup phase" is described by
 %   this while loop. 
 while  V_wat_bladder(i) > V_wat_bladder_end 
-       
-    %[m] Major head loss of the discharging phase.
-    H_loss_major_discharging(i) = Major_head_loss_discharging(Q_turbine(i), OB_GUI_parameters);
-    
-    %[m] Minor head loss of the discharging phase.
-    H_loss_minor_discharging(i) = Minor_head_loss_discharging(Q_turbine(i),OB_GUI_parameters);   
-
-    %[m] Major head loss umbilical cord during the discharging phase. 
-    H_loss_major_umbilical_discharging(i) = Major_head_loss_umbilical(Q_turbine(i), OB_GUI_parameters);
-    
-    %[m] Minor head loss umbilical cord during the discharging phase.
-    H_loss_minor_umbilical_discharging(i) = Minor_head_loss_umbilical(Q_turbine(i), OB_GUI_parameters);       
-    
-    %[m] Total head loss of the discharging phase.
-    H_loss_total_discharging(i) = H_loss_major_discharging(i)  + H_loss_minor_discharging(i) + H_loss_major_umbilical_discharging(i) + H_loss_minor_umbilical_discharging(i);
-    
-    %[m] Vertical difference between the surface of the water in the rigid reservoir and the
-    %surface of the body of water above the system.
-    H_static_discharging(i) = Depth - Water_level_rigid_reservoir(V_wat_rigid_discharging(i), D_rigid, Capacity_rigid); 
-    
-    if H_static_discharging(i)<H_loss_total_discharging(i)
-        error('ERROR: Head loss is larger than the static head. The system will not work because of too much losses.');
-    end
-    
-    %[m] Head on the turbine (this does not yet include the losses incurred in the turbine). 
-    H_turbine(i) = H_static_discharging(i) - H_loss_total_discharging (i);
-    
-    %[m] Head loss of the turbine.
-    H_loss_turbine(i) = H_turbine(i)*N_turbine;
-    
-    %[m] Final head. This is the head that determines the flow through the turbine. The head loss of the turbine is included here. 
-    H_final(i) = H_turbine(i) - H_loss_turbine(i);
-    
-    %[W] Mechanical output power of the turbine 
-    %REMARK: check this equation, the efficiency of the turbine might be
-    %taken into account two times. One time while calculating the flow and
-    %one time in the equation below. 
-    P_turbine(i) = Q_turbine(i)* H_turbine(i) * Dens_wat * g * N_turbine; 
-    
-    %[W] Electrical power produced by the generator. 
-    P_generator(i) = P_turbine(i) * N_generator;
-        
-    %[m^3] Volume of water present in the rigid reservoir.
-    V_wat_rigid_discharging(i+1) = V_wat_rigid_discharging(i) + (Q_turbine(i)*Delta_t);
-    
-    %[m^3] Volume of water present in the bladder. 
-    V_wat_bladder (i+1) = V_wat_bladder(i) - (Q_turbine(i)*Delta_t);
-    
-    %[m^3/s] Volumetric flowrate through the turbine. 
-    Q_turbine_no_interp = A_turbine * sqrt(2*g*H_final(i)); %[m^3/s] Calculates the volumetric flowrate 1 second after the current flowrate. 
-    x = [i i+1]; %Creates vector x. This vector contains the current loop number (i) and the next interation number (i+1).
-    y = [Q_turbine(i) Q_turbine_no_interp]; %Creates vector y. This vector contains the current flowrate and the flowrate one second later.
-    t_new = linspace(i, i+1, Interp_steps); %Creates vector t_new. This vector contains a number of points (Interp_steps) between i and i+1.
-    Q_turbine_interp = interp1(x,y,t_new); %Linear interpolation between the current flowrate and the flowrate one second later. The number of points is specified by t_new.
-    Q_turbine(i+1) = Q_turbine_interp(2); %[m^3/s] Takes the second value of matrix Q_turbine_interp. This is an estimation of the flowrate Delta_t seconds after the current flowrate. 
+    [H_loss_total_discharging(i), H_loss_minor_discharging(i), H_loss_major_discharging(i), ...
+        H_loss_major_umbilical_discharging(i), H_loss_minor_umbilical_discharging(i), ...
+        H_static_discharging(i), H_turbine(i), P_generator(i), ...
+        V_wat_rigid_discharging(i+1), V_wat_bladder(i+1), Q_turbine(i+1)] = Discharging_step( ...
+        Q_turbine(i), V_wat_rigid_discharging(i), V_wat_bladder(i), ...
+        OB_GUI_parameters, A_turbine, Interp_steps);
 
 % Move to the next iteration.     
 i = i+1;

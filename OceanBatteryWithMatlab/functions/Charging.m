@@ -28,42 +28,13 @@ end
 
 %% While loop
 while  V_wat_rigid_charging(i) > V_wat_rigid_end 
-    
-    %[m] Minor head loss of the charging phase. 
-    H_loss_minor_charging(i) = Minor_head_loss_charging(Q_pump(i),OB_GUI_parameters);
-    
-    %[m] Major head loss of the charging phase. 
-    H_loss_major_charging(i) = Major_head_loss_charging(Q_pump(i),OB_GUI_parameters);
-    
-    %[m] Major head loss umbilical cord during the charging phase. 
-    H_loss_major_umbilical_charging(i) = Major_head_loss_umbilical(Q_pump(i),OB_GUI_parameters);
-    
-    %[m] Minor head loss umbilical cord during the charging phase. 
-    H_loss_minor_umbilical_charging(i) = Minor_head_loss_umbilical(Q_pump(i), OB_GUI_parameters);
-    
-    %[m] Total head loss of the charging phase.
-    H_loss_total_charging(i) = H_loss_major_charging(i) + H_loss_minor_charging(i) + H_loss_major_umbilical_charging(i) + H_loss_minor_umbilical_charging(i);
-    
-    %[m] Vertical difference between the surface of the water in the rigid reservoir and the 
-    %surface of the body of water above the system.
-    H_static_charging(i) = Depth - Water_level_rigid_reservoir(V_wat_rigid_charging(i), D_rigid, Capacity_rigid);
-    
-    %[m] Total head of the pump.
-    H_pump(i) = H_static_charging(i) + H_loss_total_charging(i);
+    [H_loss_minor_charging(i), H_loss_major_charging(i), H_loss_major_umbilical_charging(i), ...
+        H_loss_minor_umbilical_charging(i), H_loss_total_charging(i), H_static_charging(i), ...
+        H_pump(i), Q_pump(i+1), V_wat_rigid_charging(i+1)] = Charging_step( ...
+        Q_pump(i), V_wat_rigid_charging(i), OB_GUI_parameters, P_pump, Interp_steps);
 
-    %[m^3/s] Volumetric flowrate through the pump. 
-    Q_pump_no_interp = P_pump / (Dens_wat * g * H_pump(i)); %[m^3/s] Calculates the volumetric flowrate 1 second after the current flowrate. 
-    x = [i i+1]; %Creates vector x. This vector contains the current loop number (i) and the next interation number (i+1).
-    y = [Q_pump(i) Q_pump_no_interp]; %Creates vector y. This vector contains the current flowrate and the flowrate one second later.
-    t_new = linspace(i, i+1, Interp_steps); %Creates vector t_new. This vector contains a number of points (Interp_steps) between i and i+1.
-    Q_pump_interp = interp1(x,y,t_new); %Linear interpolation between the current flowrate and the flowrate one second later. The number of points is specified by t_new.
-    Q_pump(i+1) = Q_pump_interp(2); %[m^3/s] Takes the second value of matrix Q_pump_interp. This is an estimation of the flowrate Delta_t seconds after the current flowrate. 
-    
-    %[m^3] Volume of water present in the rigid reservoir.
-    V_wat_rigid_charging(i+1) = V_wat_rigid_charging(i) - (Q_pump(i)*Delta_t);
-
-% Move to the next iteration.    
-i = i+1;
+    % Move to the next iteration.    
+    i = i+1;
 end
 
 %% Output variables

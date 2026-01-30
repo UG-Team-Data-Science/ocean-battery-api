@@ -1,0 +1,26 @@
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+#root {
+  overflow: hidden;
+}
+
+.llama-background {
+  background-image: url("./images/llama.png");
+  background-size: auto 500px;
+  background-repeat: no-repeat;
+  background-position: calc(100% + 180px) calc(100% - 40px);
+}
+
+.built-with-llama-3-1 { position: absolute; top: 0px; right: 22px; background-color: #fbfbfb;}

@@ -1,0 +1,33 @@
+FROM containers.mathworks.com/matlab-runtime:r2025b
+ENV AGREE_TO_MATLAB_RUNTIME_LICENSE=yes
+
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-venv python3-pip tini ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /srv
+
+ENV VENV_PATH=/opt/venv
+RUN python3 -m venv ${VENV_PATH}
+ENV PATH="${VENV_PATH}/bin:${PATH}"
+
+COPY requirements.txt /srv/requirements.txt
+RUN pip install --no-cache-dir -r /srv/requirements.txt
+
+COPY main.py /srv/main.py
+COPY build/ /opt/oceanbattery/
+ENV APP_BIN_DIR=/opt/oceanbattery/
+
+ENV OB_IN_DIR=/data/in
+ENV OB_OUT_DIR=/data/in
+ENV OB_POLL_INTERVAL=0.1
+ENV OB_TIMEOUT_SECONDS=600
+ENV OB_WORKER_COUNT=2
+ENV OB_WORKER_POLL_SECONDS=0.5
+
+RUN mkdir -p /data/in
+
+EXPOSE 8000
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
