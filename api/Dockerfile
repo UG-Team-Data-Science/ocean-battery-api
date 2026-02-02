@@ -3,7 +3,7 @@ ENV AGREE_TO_MATLAB_RUNTIME_LICENSE=yes
 
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-venv python3-pip tini ca-certificates \
+    python3 python3-venv python3-pip tini ca-certificates curl \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /srv
@@ -16,8 +16,13 @@ COPY requirements.txt /srv/requirements.txt
 RUN pip install --no-cache-dir -r /srv/requirements.txt
 
 COPY main.py /srv/main.py
-COPY build/ /opt/oceanbattery/
-ENV APP_BIN_DIR=/opt/oceanbattery/
+ENV APP_BIN_DIR=/opt/oceanbattery
+
+RUN mkdir -p /opt/oceanbattery \
+ && curl -L -o /tmp/worker.tgz https://github.com/UG-Team-Data-Science/OceanBattery/releases/download/v0.1.0/OceanBatteryAPIWorker_dist_v0.1.0.tgz \
+ && tar -xzf /tmp/worker.tgz -C /opt/oceanbattery \
+ && if [ -d /opt/oceanbattery/dist ]; then mv /opt/oceanbattery/dist/* /opt/oceanbattery/ && rmdir /opt/oceanbattery/dist; fi \
+ && rm -f /tmp/worker.tgz
 
 ENV OB_IN_DIR=/data/in
 ENV OB_OUT_DIR=/data/in
@@ -30,4 +35,4 @@ RUN mkdir -p /data/in
 
 EXPOSE 8000
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD uvicorn main:app --host 0.0.0.0 --port 8000;

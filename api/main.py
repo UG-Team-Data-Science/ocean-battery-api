@@ -20,7 +20,7 @@ POLL_INTERVAL = float(os.environ.get("OB_POLL_INTERVAL", "0.1"))
 TIMEOUT_SECONDS = float(os.environ.get("OB_TIMEOUT_SECONDS", "600"))
 
 
-APP_BIN_DIR = os.environ.get("APP_BIN_DIR", "/opt/oceanbattery/")
+APP_BIN_DIR = os.environ.get("APP_BIN_DIR", "/opt/oceanbattery")
 WORKER_BIN = os.environ.get("OB_WORKER_BIN", os.path.join(APP_BIN_DIR, "run_worker_folder_watch_requests.sh"))
 MCRROOT = os.environ.get("MCRROOT", "/opt/matlabruntime/R2025b")
 
