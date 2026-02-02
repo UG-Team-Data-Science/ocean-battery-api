@@ -312,23 +312,60 @@ export function OceanBattery() {
               </Typography>
               {chargingSeries.length > 0 ? (
                 <Box sx={{ mt: 2, display: "grid", gap: 2 }}>
-                  <LineChart
-                    height={260}
-                    xAxis={[{ data: chargingX, label: "t (s)" }]}
-                    series={[
-                      { data: chargingSeries.map((p) => p.Q ?? 0), label: "Q", showMark: false },
-                      { data: chargingSeries.map((p) => p.V_rigid ?? 0), label: "V_rigid", showMark: false },
-                    ]}
-                  />
-                  <LineChart
-                    height={260}
-                    xAxis={[{ data: chargingX, label: "t (s)" }]}
-                    series={[
-                      { data: chargingSeries.map((p) => p.H_loss_total ?? 0), label: "H_loss_total", showMark: false },
-                      { data: chargingSeries.map((p) => p.H_pump ?? 0), label: "H_pump", showMark: false },
-                      { data: chargingSeries.map((p) => p.H_static ?? 0), label: "H_static", showMark: false },
-                    ]}
-                  />
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                      Flow through the pump (Charging)
+                    </Typography>
+                    <LineChart
+                      height={240}
+                      xAxis={[{ data: chargingX, label: "t (s)" }]}
+                      series={[
+                        { data: chargingSeries.map((p) => p.Q ?? 0), label: "Q", showMark: false },
+                      ]}
+                    />
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                      Volume of fluid present in the rigid reservoir (Charging)
+                    </Typography>
+                    <LineChart
+                      height={240}
+                      xAxis={[{ data: chargingX, label: "t (s)" }]}
+                      series={[
+                        { data: chargingSeries.map((p) => p.V_rigid ?? 0), label: "V_rigid", showMark: false },
+                      ]}
+                    />
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                      Head loss (Charging)
+                    </Typography>
+                    <LineChart
+                      height={260}
+                      xAxis={[{ data: chargingX, label: "t (s)" }]}
+                      series={[
+                        { data: chargingSeries.map((p) => p.H_loss_total ?? 0), label: "H_loss_total", showMark: false },
+                        { data: chargingSeries.map((p) => p.H_loss_minor ?? 0), label: "H_loss_minor", showMark: false },
+                        { data: chargingSeries.map((p) => p.H_loss_major ?? 0), label: "H_loss_major", showMark: false },
+                        { data: chargingSeries.map((p) => p.H_loss_major_umbilical ?? 0), label: "H_loss_major_umbilical", showMark: false },
+                        { data: chargingSeries.map((p) => p.H_loss_minor_umbilical ?? 0), label: "H_loss_minor_umbilical", showMark: false },
+                      ]}
+                    />
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                      Pump head (Charging)
+                    </Typography>
+                    <LineChart
+                      height={240}
+                      xAxis={[{ data: chargingX, label: "t (s)" }]}
+                      series={[
+                        { data: chargingSeries.map((p) => p.H_static ?? 0), label: "H_static", showMark: false },
+                        { data: chargingSeries.map((p) => p.H_pump ?? 0), label: "H_pump", showMark: false },
+                        { data: chargingSeries.map((p) => p.H_loss_total ?? 0), label: "H_loss_total", showMark: false },
+                      ]}
+                    />
+                  </Box>
                 </Box>
               ) : (
                 <Typography variant="body2" sx={{ mt: 2 }}>
@@ -346,31 +383,73 @@ export function OceanBattery() {
               </Typography>
               {dischargingSeries.length > 0 ? (
                 <Box sx={{ mt: 2, display: "grid", gap: 2 }}>
-                  <LineChart
-                    height={260}
-                    xAxis={[{ data: dischargingX, label: "t (s)" }]}
-                    series={[
-                      { data: dischargingSeries.map((p) => p.Q ?? 0), label: "Q", showMark: false },
-                      { data: dischargingSeries.map((p) => p.V_bladder ?? 0), label: "V_bladder", showMark: false },
-                      { data: dischargingSeries.map((p) => p.V_rigid ?? 0), label: "V_rigid", showMark: false },
-                    ]}
-                  />
-                  <LineChart
-                    height={260}
-                    xAxis={[{ data: dischargingX, label: "t (s)" }]}
-                    series={[
-                      { data: dischargingSeries.map((p) => p.H_loss_total ?? 0), label: "H_loss_total", showMark: false },
-                      { data: dischargingSeries.map((p) => p.H_turbine ?? 0), label: "H_turbine", showMark: false },
-                      { data: dischargingSeries.map((p) => p.H_static ?? 0), label: "H_static", showMark: false },
-                    ]}
-                  />
-                  <LineChart
-                    height={220}
-                    xAxis={[{ data: dischargingX, label: "t (s)" }]}
-                    series={[
-                      { data: dischargingSeries.map((p) => p.P_generator ?? 0), label: "P_generator", showMark: false },
-                    ]}
-                  />
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                      Flow through the turbine (Discharging)
+                    </Typography>
+                    <LineChart
+                      height={240}
+                      xAxis={[{ data: dischargingX, label: "t (s)" }]}
+                      series={[
+                        { data: dischargingSeries.map((p) => p.Q ?? 0), label: "Q", showMark: false },
+                      ]}
+                    />
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                      Water in bladder and rigid reservoir (Discharging)
+                    </Typography>
+                    <LineChart
+                      height={240}
+                      xAxis={[{ data: dischargingX, label: "t (s)" }]}
+                      series={[
+                        { data: dischargingSeries.map((p) => p.V_rigid ?? 0), label: "V_rigid", showMark: false },
+                        { data: dischargingSeries.map((p) => p.V_bladder ?? 0), label: "V_bladder", showMark: false },
+                      ]}
+                    />
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                      Head loss (Discharging)
+                    </Typography>
+                    <LineChart
+                      height={260}
+                      xAxis={[{ data: dischargingX, label: "t (s)" }]}
+                      series={[
+                        { data: dischargingSeries.map((p) => p.H_loss_total ?? 0), label: "H_loss_total", showMark: false },
+                        { data: dischargingSeries.map((p) => p.H_loss_minor ?? 0), label: "H_loss_minor", showMark: false },
+                        { data: dischargingSeries.map((p) => p.H_loss_major ?? 0), label: "H_loss_major", showMark: false },
+                        { data: dischargingSeries.map((p) => p.H_loss_major_umbilical ?? 0), label: "H_loss_major_umbilical", showMark: false },
+                        { data: dischargingSeries.map((p) => p.H_loss_minor_umbilical ?? 0), label: "H_loss_minor_umbilical", showMark: false },
+                      ]}
+                    />
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                      Turbine head (Discharging)
+                    </Typography>
+                    <LineChart
+                      height={240}
+                      xAxis={[{ data: dischargingX, label: "t (s)" }]}
+                      series={[
+                        { data: dischargingSeries.map((p) => p.H_static ?? 0), label: "H_static", showMark: false },
+                        { data: dischargingSeries.map((p) => p.H_loss_total ?? 0), label: "H_loss_total", showMark: false },
+                        { data: dischargingSeries.map((p) => p.H_turbine ?? 0), label: "H_turbine", showMark: false },
+                      ]}
+                    />
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                      Power of the generator (Discharging)
+                    </Typography>
+                    <LineChart
+                      height={220}
+                      xAxis={[{ data: dischargingX, label: "t (s)" }]}
+                      series={[
+                        { data: dischargingSeries.map((p) => p.P_generator ?? 0), label: "P_generator", showMark: false },
+                      ]}
+                    />
+                  </Box>
                 </Box>
               ) : (
                 <Typography variant="body2" sx={{ mt: 2 }}>
