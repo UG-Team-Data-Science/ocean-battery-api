@@ -21,11 +21,13 @@ function useOceanBatteryState() {
   const [scalars, setScalars] = useState<Record<string, number>>({});
   const [kvalues, setKvalues] = useState<any>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [errors, setErrors] = useState<string[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const apiBase = "/api";
   const chargingBufferRef = useRef<SeriesPoint[]>([]);
   const dischargingBufferRef = useRef<SeriesPoint[]>([]);
   const flushTimerRef = useRef<number | null>(null);
+  const phaseRef = useRef<"charging" | "discharging" | null>(null);
 
   const paramGroups = useMemo(() => {
     const used = new Set<string>();
@@ -290,8 +292,10 @@ function useOceanBatteryState() {
     setChargingSeries([]);
     setDischargingSeries([]);
     setScalars({});
+    setErrors([]);
     chargingBufferRef.current = [];
     dischargingBufferRef.current = [];
+    phaseRef.current = null;
     if (flushTimerRef.current) {
       window.clearInterval(flushTimerRef.current);
       flushTimerRef.current = null;
@@ -344,9 +348,15 @@ function useOceanBatteryState() {
             if (ev?.type === "start") {
               setChargingSeries([]);
               setDischargingSeries([]);
+              phaseRef.current = "charging";
               continue;
             }
             if (ev?.type === "summary") {
+              if (ev.phase === "discharging") {
+                phaseRef.current = "discharging";
+              } else if (ev.phase === "charging") {
+                phaseRef.current = "charging";
+              }
               setScalars((s) => ({
                 ...s,
                 ...(ev.phase === "charging"
@@ -355,14 +365,21 @@ function useOceanBatteryState() {
               }));
               continue;
             }
+            if (ev?.type === "error") {
+              const message = typeof ev.message === "string" ? ev.message : "Simulation error.";
+              setErrors((prev) => [...prev, message]);
+              continue;
+            }
             if (ev?.type === "timeseries") {
               const point: SeriesPoint = {};
               for (const [k, v] of Object.entries(ev)) {
                 if (typeof v === "number") point[k] = v;
               }
               if (ev.phase === "charging") {
+                phaseRef.current = "charging";
                 chargingBufferRef.current.push(point);
               } else if (ev.phase === "discharging") {
+                phaseRef.current = "discharging";
                 dischargingBufferRef.current.push(point);
               }
             }
@@ -400,6 +417,7 @@ function useOceanBatteryState() {
     scalars,
     kvalues,
     busy,
+    errors,
     selectedGroup,
     setSelectedGroup,
     paramGroups,

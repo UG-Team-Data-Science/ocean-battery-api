@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  Alert,
   Box,
   Button,
   Card,
@@ -30,6 +31,7 @@ export function PlotsPanel() {
       kvalueRows,
       chargingX,
       dischargingX,
+      errors,
     } = useOceanBattery();
 
   return (
@@ -71,6 +73,13 @@ export function PlotsPanel() {
       {tab === 0 && (
         <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
           <Typography variant="h6">K-values table (charging vs discharging).</Typography>
+          {errors.length > 0 && (
+            <Alert severity="error" sx={{ mt: 1.5 }}>
+              {errors.map((message, idx) => (
+                <div key={`${idx}-${message}`}>{message}</div>
+              ))}
+            </Alert>
+          )}
           <Box sx={{ overflow: "auto", pr: 1, mt: 2 }}>
             {kvalueRows.length > 0 ? (
               <TableContainer component={Paper}>

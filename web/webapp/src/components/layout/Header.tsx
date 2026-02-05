@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Container, Grid, Box, Link, Button, Typography  } from '@mui/material';
+import { Container, Grid, Box, Link, Button, Typography, CircularProgress } from '@mui/material';
 
 import './Layout.css';
 import "../../rug-huisstijl.css"
@@ -37,7 +37,8 @@ export function Header() {
           <Link key="charging" className={`${tab === 1 ? 'active ' : ""}`} onClick={() => selectTab(1)}>Charging</Link>
           <Link key="charging" className={`${tab === 2 ? 'active ' : ""}`} onClick={() => selectTab(2)}>Discharging</Link>
         </Box>
-        <Box style={{flexGrow: 0, padding: 0}}>
+        <Box style={{flexGrow: 0, padding: 0, display: "flex", alignItems: "center", gap: "10px"}}>
+          {busy === "simulate" && <CircularProgress size={18} color="inherit" />}
           <Button
             variant="contained" disabled={!!busy} onClick={computeKValues} size="small"
             style={{height: "30px", marginRight: "10px"}}>
