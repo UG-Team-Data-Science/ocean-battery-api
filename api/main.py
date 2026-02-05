@@ -163,7 +163,7 @@ async def simulate(request: Request, stream: bool = True) -> Any:
         lines = _wait_for_jsonl_complete(out_path, timeout=TIMEOUT_SECONDS)
         if lines is None:
             raise HTTPException(status_code=504, detail="Timed out waiting for charging output.")
-        if not _jsonl_has_error(lines):
+        if not _jsonl_has_nondet_error(lines):
             _write_jsonl(cache_path, lines)
         _safe_unlink(out_path)
         _clear_inflight(cache_key)
@@ -333,7 +333,7 @@ def _cache_has_end(path: str) -> bool:
     return False
 
 
-def _cache_has_error(path: str) -> bool:
+def _cache_has_nondet_error(path: str) -> bool:
     try:
         with open(path, "rb") as f:
             f.seek(0, os.SEEK_END)
@@ -349,16 +349,18 @@ def _cache_has_error(path: str) -> bool:
             except json.JSONDecodeError:
                 continue
             if isinstance(obj, dict) and obj.get("type") == "error":
-                return True
+                if not obj.get("deterministic", False):
+                    return True
     except OSError:
         return False
     return False
 
 
-def _jsonl_has_error(lines: List[Dict[str, Any]]) -> bool:
+def _jsonl_has_nondet_error(lines: List[Dict[str, Any]]) -> bool:
     for entry in lines:
         if isinstance(entry, dict) and entry.get("type") == "error":
-            return True
+            if not entry.get("deterministic", False):
+                return True
     return False
 
 
@@ -428,7 +430,7 @@ async def _stream_jsonl_follow_internal(
 
 
 def _finalize_cache(cache_key: str, out_path: str, cache_path: str) -> None:
-    if _cache_has_end(out_path) and not _cache_has_error(out_path):
+    if _cache_has_end(out_path) and not _cache_has_nondet_error(out_path):
         _copy_atomic(out_path, cache_path)
     _clear_inflight(cache_key)
 
