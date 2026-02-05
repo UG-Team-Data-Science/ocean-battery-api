@@ -163,7 +163,8 @@ async def simulate(request: Request, stream: bool = True) -> Any:
         lines = _wait_for_jsonl_complete(out_path, timeout=TIMEOUT_SECONDS)
         if lines is None:
             raise HTTPException(status_code=504, detail="Timed out waiting for charging output.")
-        _write_jsonl(cache_path, lines)
+        if not _jsonl_has_error(lines):
+            _write_jsonl(cache_path, lines)
         _safe_unlink(out_path)
         _clear_inflight(cache_key)
         return {"events": lines}
@@ -332,6 +333,35 @@ def _cache_has_end(path: str) -> bool:
     return False
 
 
+def _cache_has_error(path: str) -> bool:
+    try:
+        with open(path, "rb") as f:
+            f.seek(0, os.SEEK_END)
+            size = f.tell()
+            if size == 0:
+                return False
+            f.seek(max(0, size - 65536), os.SEEK_SET)
+            tail = f.read().decode("utf-8", errors="ignore")
+        lines = [ln for ln in tail.splitlines() if ln.strip()]
+        for ln in lines:
+            try:
+                obj = json.loads(ln)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(obj, dict) and obj.get("type") == "error":
+                return True
+    except OSError:
+        return False
+    return False
+
+
+def _jsonl_has_error(lines: List[Dict[str, Any]]) -> bool:
+    for entry in lines:
+        if isinstance(entry, dict) and entry.get("type") == "error":
+            return True
+    return False
+
+
 def _cache_recent(path: str, window_seconds: float) -> bool:
     try:
         mtime = os.path.getmtime(path)
@@ -398,7 +428,7 @@ async def _stream_jsonl_follow_internal(
 
 
 def _finalize_cache(cache_key: str, out_path: str, cache_path: str) -> None:
-    if _cache_has_end(out_path):
+    if _cache_has_end(out_path) and not _cache_has_error(out_path):
         _copy_atomic(out_path, cache_path)
     _clear_inflight(cache_key)
 
