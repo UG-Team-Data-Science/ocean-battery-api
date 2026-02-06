@@ -2,6 +2,7 @@ import asyncio
 import json
 import math
 import os
+import logging
 import subprocess
 import threading
 import time
@@ -30,6 +31,9 @@ CACHE_DIR = os.environ.get("OB_CACHE_DIR", "/data/cache")
 CACHE_IDLE_TIMEOUT = float(os.environ.get("OB_CACHE_IDLE_TIMEOUT", "10"))
 ALIVE_DIR = os.environ.get("OB_ALIVE_DIR", IN_DIR)
 ALIVE_HEARTBEAT_SECONDS = float(os.environ.get("OB_ALIVE_HEARTBEAT_SECONDS", "1.0"))
+WORKER_LOG_PATH = os.environ.get("OB_WORKER_LOG_PATH", "/data/worker_manager.log")
+WORKER_LOG_EVERY_SECONDS = float(os.environ.get("OB_WORKER_LOG_EVERY_SECONDS", "30"))
+WORKER_STDOUT_DIR = os.environ.get("OB_WORKER_STDOUT_DIR", "/logs")
 
 
 app = FastAPI(title="OceanBattery API", version="1.0.0")
@@ -44,6 +48,10 @@ class WorkerManager:
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._monitor: Optional[threading.Thread] = None
+        self._logger = _build_worker_logger()
+        self._last_log_ts = 0.0
+        self._cpu_samples: Dict[int, Tuple[float, float]] = {}
+        self._log_files: Dict[int, Tuple[Any, Any]] = {}
 
     def start(self) -> None:
         self._stop.clear()
@@ -59,21 +67,130 @@ class WorkerManager:
             for proc in self._procs:
                 proc.terminate()
             self._procs = []
+            self._close_log_files()
 
     def _monitor_loop(self) -> None:
         while not self._stop.is_set():
             self._ensure_workers()
+            self._maybe_log_status()
             time.sleep(2)
 
     def _ensure_workers(self) -> None:
         with self._lock:
-            self._procs = [p for p in self._procs if p.poll() is None]
+            live = []
+            for proc in self._procs:
+                if proc.poll() is None:
+                    live.append(proc)
+                else:
+                    self._close_log_files(pid=proc.pid)
+            self._procs = live
             while len(self._procs) < WORKER_COUNT:
                 self._procs.append(self._spawn_worker())
 
     def _spawn_worker(self) -> subprocess.Popen:
         cmd = [WORKER_BIN, MCRROOT, IN_DIR, str(WORKER_POLL_SECONDS)]
-        return subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        stdout_file, stderr_file, stdout_path, stderr_path = _open_worker_logs()
+        proc = subprocess.Popen(cmd, stdout=stdout_file, stderr=stderr_file)
+        _finalize_worker_logs(proc.pid, stdout_path, stderr_path)
+        self._log_files[proc.pid] = (stdout_file, stderr_file)
+        return proc
+
+    def _maybe_log_status(self) -> None:
+        if not self._logger or WORKER_LOG_EVERY_SECONDS <= 0:
+            return
+        now = time.time()
+        if now - self._last_log_ts < WORKER_LOG_EVERY_SECONDS:
+            return
+        with self._lock:
+            procs = [p for p in self._procs if p.poll() is None]
+        inflight_count = _inflight_count()
+        lines = [f"workers={len(procs)} inflight={inflight_count}"]
+        for proc in procs:
+            pid = proc.pid
+            stats = _read_proc_stats(pid)
+            if not stats:
+                lines.append(f"pid={pid} status=unknown")
+                continue
+            rss_kb = stats.get("rss_kb")
+            vms_kb = stats.get("vms_kb")
+            ticks = stats.get("cpu_ticks")
+            cpu_pct = _calc_cpu_pct(pid, ticks, now, self._cpu_samples)
+            parts = [f"pid={pid}"]
+            if cpu_pct is not None:
+                parts.append(f"cpu_pct={cpu_pct:.1f}")
+            if rss_kb is not None:
+                parts.append(f"rss_kb={rss_kb}")
+            if vms_kb is not None:
+                parts.append(f"vms_kb={vms_kb}")
+            lines.append(" ".join(parts))
+        self._logger.info(" | ".join(lines))
+        self._last_log_ts = now
+
+    def _close_log_files(self, pid: Optional[int] = None) -> None:
+        if pid is None:
+            items = list(self._log_files.items())
+        else:
+            items = [(pid, self._log_files.get(pid))] if pid in self._log_files else []
+        for pid, files in items:
+            if not files:
+                continue
+            stdout_file, stderr_file = files
+            try:
+                stdout_file.close()
+            except OSError:
+                pass
+            if stderr_file is not stdout_file:
+                try:
+                    stderr_file.close()
+                except OSError:
+                    pass
+            self._log_files.pop(pid, None)
+
+
+def _build_worker_logger() -> Optional[logging.Logger]:
+    if WORKER_LOG_EVERY_SECONDS <= 0:
+        return None
+    logger = logging.getLogger("worker_manager")
+    if logger.handlers:
+        return logger
+    logger.setLevel(logging.INFO)
+    log_dir = os.path.dirname(WORKER_LOG_PATH)
+    try:
+        if log_dir:
+            os.makedirs(log_dir, exist_ok=True)
+        handler = logging.FileHandler(WORKER_LOG_PATH)
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+        logger.addHandler(handler)
+        logger.propagate = False
+        return logger
+    except OSError:
+        return None
+
+
+def _open_worker_logs() -> Tuple[Any, Any, str, str]:
+    os.makedirs(WORKER_STDOUT_DIR, exist_ok=True)
+    ts = time.strftime("%Y%m%d-%H%M%S")
+    suffix = uuid.uuid4().hex[:8]
+    stdout_path = os.path.join(WORKER_STDOUT_DIR, f"worker-{ts}-{suffix}.stdout")
+    stderr_path = os.path.join(WORKER_STDOUT_DIR, f"worker-{ts}-{suffix}.stderr")
+    try:
+        stdout_fh = open(stdout_path, "a", encoding="utf-8")
+        stderr_fh = open(stderr_path, "a", encoding="utf-8")
+    except OSError:
+        return (subprocess.DEVNULL, subprocess.DEVNULL, "", "")
+    return (stdout_fh, stderr_fh, stdout_path, stderr_path)
+
+
+def _finalize_worker_logs(pid: int, stdout_path: str, stderr_path: str) -> None:
+    if not stdout_path or not stderr_path:
+        return
+    try:
+        final_stdout = os.path.join(WORKER_STDOUT_DIR, f"worker-{pid}.stdout")
+        final_stderr = os.path.join(WORKER_STDOUT_DIR, f"worker-{pid}.stderr")
+        os.replace(stdout_path, final_stdout)
+        os.replace(stderr_path, final_stderr)
+    except OSError:
+        pass
 
 
 _workers = WorkerManager()
@@ -294,6 +411,61 @@ def _safe_unlink(path: str) -> None:
             os.remove(path)
     except OSError:
         pass
+
+
+def _inflight_count() -> int:
+    with _inflight_lock:
+        return len(_inflight)
+
+
+def _read_proc_stats(pid: int) -> Optional[Dict[str, Optional[int]]]:
+    try:
+        with open(f"/proc/{pid}/stat", "r", encoding="utf-8") as f:
+            data = f.read()
+        rparen = data.rfind(")")
+        if rparen == -1:
+            return None
+        after = data[rparen + 2 :].split()
+        utime = int(after[11])
+        stime = int(after[12])
+        cpu_ticks = utime + stime
+    except (FileNotFoundError, PermissionError, IndexError, ValueError):
+        return None
+
+    rss_kb = None
+    vms_kb = None
+    try:
+        with open(f"/proc/{pid}/status", "r", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    rss_kb = int(line.split()[1])
+                elif line.startswith("VmSize:"):
+                    vms_kb = int(line.split()[1])
+    except (FileNotFoundError, PermissionError, ValueError, IndexError):
+        pass
+
+    return {"cpu_ticks": cpu_ticks, "rss_kb": rss_kb, "vms_kb": vms_kb}
+
+
+def _calc_cpu_pct(
+    pid: int,
+    cpu_ticks: Optional[int],
+    now: float,
+    samples: Dict[int, Tuple[float, float]],
+) -> Optional[float]:
+    if cpu_ticks is None:
+        return None
+    last = samples.get(pid)
+    samples[pid] = (float(cpu_ticks), now)
+    if not last:
+        return None
+    last_ticks, last_ts = last
+    delta_ticks = cpu_ticks - last_ticks
+    delta_time = now - last_ts
+    if delta_time <= 0:
+        return None
+    clk_tck = os.sysconf(os.sysconf_names["SC_CLK_TCK"])
+    return (delta_ticks / clk_tck) / delta_time * 100.0
 
 
 def _hash_params(kind: str, params: Dict[str, Any]) -> str:
