@@ -28,6 +28,7 @@ function useOceanBatteryState() {
   const dischargingBufferRef = useRef<SeriesPoint[]>([]);
   const flushTimerRef = useRef<number | null>(null);
   const phaseRef = useRef<"charging" | "discharging" | null>(null);
+  const simulateAbortRef = useRef<AbortController | null>(null);
 
   const paramGroups = useMemo(() => {
     const used = new Set<string>();
@@ -288,6 +289,10 @@ function useOceanBatteryState() {
   };
 
   const startSimulationStream = async () => {
+    if (simulateAbortRef.current) {
+      simulateAbortRef.current.abort();
+      simulateAbortRef.current = null;
+    }
     setBusy("simulate");
     setChargingSeries([]);
     setDischargingSeries([]);
@@ -301,10 +306,13 @@ function useOceanBatteryState() {
       flushTimerRef.current = null;
     }
     try {
+      const controller = new AbortController();
+      simulateAbortRef.current = controller;
       const res = await fetch(`${apiBase}/simulate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ params }),
+        signal: controller.signal,
       });
       if (!res.ok) throw new Error(await res.text());
       if (!res.body) throw new Error("No response body for stream.");
@@ -401,8 +409,23 @@ function useOceanBatteryState() {
         dischargingBufferRef.current = [];
         setDischargingSeries((arr) => [...arr, ...batch]);
       }
+      if (simulateAbortRef.current) {
+        simulateAbortRef.current = null;
+      }
       setBusy(null);
     }
+  };
+
+  const stopSimulationStream = () => {
+    if (simulateAbortRef.current) {
+      simulateAbortRef.current.abort();
+      simulateAbortRef.current = null;
+    }
+    if (flushTimerRef.current) {
+      window.clearInterval(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
+    setBusy(null);
   };
 
   const selectTab = (value: number) => setTab(value);
@@ -427,6 +450,7 @@ function useOceanBatteryState() {
     restoreDefaults,
     computeKValues,
     startSimulationStream,
+    stopSimulationStream,
   };
 }
 

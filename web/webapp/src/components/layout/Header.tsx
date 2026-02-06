@@ -15,6 +15,7 @@ export function Header() {
     busy,
     computeKValues,
     startSimulationStream,
+    stopSimulationStream,
   } = useOceanBattery();
 
   return (<>
@@ -43,6 +44,15 @@ export function Header() {
             variant="contained" disabled={!!busy} onClick={computeKValues} size="small"
             style={{height: "30px", marginRight: "10px"}}>
             Compute K-values
+          </Button>
+          <Button
+            variant="outlined"
+            disabled={busy !== "simulate"}
+            onClick={stopSimulationStream}
+            size="small"
+            style={{height: "30px"}}
+          >
+            Stop simulation
           </Button>
           <Button variant="contained" disabled={!!busy} onClick={startSimulationStream}  size="small"
                   style={{height: "30px"}}>

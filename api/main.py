@@ -28,6 +28,8 @@ WORKER_COUNT = int(os.environ.get("OB_WORKER_COUNT", "2"))
 WORKER_POLL_SECONDS = os.environ.get("OB_WORKER_POLL_SECONDS", "0.5")
 CACHE_DIR = os.environ.get("OB_CACHE_DIR", "/data/cache")
 CACHE_IDLE_TIMEOUT = float(os.environ.get("OB_CACHE_IDLE_TIMEOUT", "10"))
+ALIVE_DIR = os.environ.get("OB_ALIVE_DIR", IN_DIR)
+ALIVE_HEARTBEAT_SECONDS = float(os.environ.get("OB_ALIVE_HEARTBEAT_SECONDS", "1.0"))
 
 
 app = FastAPI(title="OceanBattery API", version="1.0.0")
@@ -150,14 +152,18 @@ async def simulate(request: Request, stream: bool = True) -> Any:
                 idle_timeout=CACHE_IDLE_TIMEOUT,
                 startup_timeout=TIMEOUT_SECONDS,
                 on_end=None,
+                heartbeat_path=inflight.get("alive_path"),
+                heartbeat_interval=ALIVE_HEARTBEAT_SECONDS,
             ),
             media_type="text/event-stream",
         )
 
     base = str(uuid.uuid4())
     in_path, out_path = _request_paths(base)
+    alive_path = _alive_path(base)
+    _touch_file(alive_path)
     _write_json_atomic(in_path, {"type": "charging", "params": params})
-    _set_inflight(cache_key, {"out_path": out_path})
+    _set_inflight(cache_key, {"out_path": out_path, "alive_path": alive_path})
 
     if not stream:
         lines = _wait_for_jsonl_complete(out_path, timeout=TIMEOUT_SECONDS)
@@ -176,6 +182,8 @@ async def simulate(request: Request, stream: bool = True) -> Any:
             idle_timeout=CACHE_IDLE_TIMEOUT,
             startup_timeout=TIMEOUT_SECONDS,
             on_end=lambda: _finalize_cache(cache_key, out_path, cache_path),
+            heartbeat_path=alive_path,
+            heartbeat_interval=ALIVE_HEARTBEAT_SECONDS,
         ),
         media_type="text/event-stream",
     )
@@ -195,11 +203,26 @@ def _request_paths(base: str) -> Tuple[str, str]:
     return in_path, out_path
 
 
+def _alive_path(base: str) -> str:
+    return os.path.join(ALIVE_DIR, f"{base}.alive")
+
+
 def _write_json_atomic(path: str, obj: Dict[str, Any]) -> None:
     tmp_path = f"{path}.tmp-{uuid.uuid4()}"
     with open(tmp_path, "w", encoding="utf-8") as f:
         json.dump(obj, f)
     os.replace(tmp_path, path)
+
+
+def _touch_file(path: str) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    now = time.time()
+    try:
+        os.utime(path, (now, now))
+    except FileNotFoundError:
+        with open(path, "a", encoding="utf-8"):
+            pass
+        os.utime(path, (now, now))
 
 
 def _wait_for_json(path: str, timeout: float) -> Optional[Dict[str, Any]]:
@@ -384,10 +407,16 @@ async def _stream_jsonl_follow_internal(
     idle_timeout: float,
     startup_timeout: float,
     on_end: Optional[callable],
+    heartbeat_path: Optional[str] = None,
+    heartbeat_interval: float = 1.0,
 ):
     last_activity = time.time()
     deadline = time.time() + startup_timeout
+    last_heartbeat = 0.0
     while not os.path.exists(path):
+        if heartbeat_path and time.time() - last_heartbeat >= heartbeat_interval:
+            _touch_file(heartbeat_path)
+            last_heartbeat = time.time()
         if time.time() > deadline:
             yield "data: " + json.dumps({"type": "error", "message": "Timed out waiting for output"}) + "\n\n"
             yield "data: [DONE]\n\n"
@@ -400,6 +429,9 @@ async def _stream_jsonl_follow_internal(
     try:
         with open(path, "r", encoding="utf-8") as f:
             while True:
+                if heartbeat_path and time.time() - last_heartbeat >= heartbeat_interval:
+                    _touch_file(heartbeat_path)
+                    last_heartbeat = time.time()
                 line = f.readline()
                 if line:
                     last_activity = time.time()
