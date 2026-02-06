@@ -9,7 +9,7 @@ import time
 import uuid
 import hashlib
 import shutil
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -26,7 +26,7 @@ WORKER_BIN = os.environ.get("OB_WORKER_BIN", os.path.join(APP_BIN_DIR, "run_work
 MCRROOT = os.environ.get("MCRROOT", "/opt/matlabruntime/R2025b")
 
 WORKER_COUNT = int(os.environ.get("OB_WORKER_COUNT", "2"))
-WORKER_POLL_SECONDS = os.environ.get("OB_WORKER_POLL_SECONDS", "0.5")
+WORKER_POLL_SECONDS = os.environ.get("OB_WORKER_POLL_SECONDS", "1")
 CACHE_DIR = os.environ.get("OB_CACHE_DIR", "/data/cache")
 CACHE_IDLE_TIMEOUT = float(os.environ.get("OB_CACHE_IDLE_TIMEOUT", "10"))
 ALIVE_DIR = os.environ.get("OB_ALIVE_DIR", IN_DIR)
@@ -256,6 +256,7 @@ async def simulate(request: Request, stream: bool = True) -> Any:
                     idle_timeout=CACHE_IDLE_TIMEOUT,
                     startup_timeout=TIMEOUT_SECONDS,
                     on_end=None,
+                    disconnect_check=request.is_disconnected,
                 ),
                 media_type="text/event-stream",
             )
@@ -271,6 +272,7 @@ async def simulate(request: Request, stream: bool = True) -> Any:
                 on_end=None,
                 heartbeat_path=inflight.get("alive_path"),
                 heartbeat_interval=ALIVE_HEARTBEAT_SECONDS,
+                disconnect_check=request.is_disconnected,
             ),
             media_type="text/event-stream",
         )
@@ -301,6 +303,7 @@ async def simulate(request: Request, stream: bool = True) -> Any:
             on_end=lambda: _finalize_cache(cache_key, out_path, cache_path),
             heartbeat_path=alive_path,
             heartbeat_interval=ALIVE_HEARTBEAT_SECONDS,
+            disconnect_check=request.is_disconnected,
         ),
         media_type="text/event-stream",
     )
@@ -578,14 +581,17 @@ async def _stream_jsonl_follow_internal(
     path: str,
     idle_timeout: float,
     startup_timeout: float,
-    on_end: Optional[callable],
+    on_end: Optional[Callable[[], None]],
     heartbeat_path: Optional[str] = None,
     heartbeat_interval: float = 1.0,
+    disconnect_check: Optional[Callable[[], Awaitable[bool]]] = None,
 ):
     last_activity = time.time()
     deadline = time.time() + startup_timeout
     last_heartbeat = 0.0
     while not os.path.exists(path):
+        if disconnect_check and await disconnect_check():
+            return
         if heartbeat_path and time.time() - last_heartbeat >= heartbeat_interval:
             _touch_file(heartbeat_path)
             last_heartbeat = time.time()
@@ -601,6 +607,8 @@ async def _stream_jsonl_follow_internal(
     try:
         with open(path, "r", encoding="utf-8") as f:
             while True:
+                if disconnect_check and await disconnect_check():
+                    return
                 if heartbeat_path and time.time() - last_heartbeat >= heartbeat_interval:
                     _touch_file(heartbeat_path)
                     last_heartbeat = time.time()
