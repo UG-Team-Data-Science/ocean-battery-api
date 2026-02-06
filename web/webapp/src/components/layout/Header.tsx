@@ -46,7 +46,7 @@ export function Header() {
             Compute K-values
           </Button>
           <Button
-            variant="outlined"
+            variant="contained"
             disabled={busy !== "simulate"}
             onClick={stopSimulationStream}
             size="small"
