@@ -3,7 +3,7 @@ services:
     build:
       context: ./web
     ports:
-      - "8081:80"
+      - "8082:80"
     depends_on:
       - api
     restart: unless-stopped
@@ -16,7 +16,7 @@ services:
     environment:
       - AGREE_TO_MATLAB_RUNTIME_LICENSE=yes
       - OB_CACHE_DIR=/data/cache
-      - OB_CACHE_IDLE_TIMEOUT=10
+      - OB_CACHE_IDLE_TIMEOUT=30
     restart: unless-stopped
     volumes:
       - ./media/cache:/data/cache
