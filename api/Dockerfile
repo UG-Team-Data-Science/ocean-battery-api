@@ -26,20 +26,20 @@ RUN mkdir -p /opt/oceanbattery \
  && rm -f /tmp/worker.tgz
 
 ENV OB_IN_DIR=/data/in
-ENV OB_OUT_DIR=/data/in
+ENV OB_OUT_DIR=/data/out
 ENV OB_POLL_INTERVAL=0.1
 ENV OB_TIMEOUT_SECONDS=600
 ENV OB_WORKER_COUNT=2
 ENV OB_WORKER_POLL_SECONDS=1
 ENV OB_CACHE_DIR=/data/cache
 ENV OB_CACHE_IDLE_TIMEOUT=10
-ENV OB_ALIVE_DIR=/data/in
+ENV OB_ALIVE_DIR=/data/alive
 ENV OB_ALIVE_HEARTBEAT_SECONDS=1.0
 ENV OB_WORKER_LOG_PATH=/data/worker_manager.log
 ENV OB_WORKER_LOG_EVERY_SECONDS=30
 ENV OB_WORKER_STDOUT_DIR=/logs
 
-RUN mkdir -p /data/in
+RUN mkdir -p /data/in /data/out /data/alive /data/cache /logs
 
 EXPOSE 8000
 ENTRYPOINT ["/usr/bin/tini", "--"]

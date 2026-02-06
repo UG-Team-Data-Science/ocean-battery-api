@@ -15,8 +15,15 @@ services:
         OB_WORKER_TAG: "0.1.7-alpha"
     environment:
       - AGREE_TO_MATLAB_RUNTIME_LICENSE=yes
+      - OB_IN_DIR=/data/in
+      - OB_OUT_DIR=/data/out
+      - OB_ALIVE_DIR=/data/alive
       - OB_CACHE_DIR=/data/cache
       - OB_CACHE_IDLE_TIMEOUT=30
     restart: unless-stopped
     volumes:
+      - ./media/in:/data/in
+      - ./media/out:/data/out
+      - ./media/alive:/data/alive
       - ./media/cache:/data/cache
+      - ./media/logs:/logs
