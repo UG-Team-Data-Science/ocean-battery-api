@@ -88,7 +88,7 @@ class WorkerManager:
                 self._procs.append(self._spawn_worker())
 
     def _spawn_worker(self) -> subprocess.Popen:
-        cmd = [WORKER_BIN, MCRROOT, IN_DIR, str(WORKER_POLL_SECONDS)]
+        cmd = [WORKER_BIN, MCRROOT, IN_DIR, str(WORKER_POLL_SECONDS), OUT_DIR, ALIVE_DIR]
         stdout_file, stderr_file, stdout_path, stderr_path = _open_worker_logs()
         proc = subprocess.Popen(cmd, stdout=stdout_file, stderr=stderr_file)
         _finalize_worker_logs(proc.pid, stdout_path, stderr_path)
