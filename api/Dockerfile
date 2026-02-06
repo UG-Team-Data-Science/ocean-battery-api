@@ -18,8 +18,9 @@ RUN pip install --no-cache-dir -r /srv/requirements.txt
 COPY main.py /srv/main.py
 ENV APP_BIN_DIR=/opt/oceanbattery
 
+ARG OB_WORKER_TAG=0.1.0
 RUN mkdir -p /opt/oceanbattery \
- && curl -L -o /tmp/worker.tgz https://github.com/UG-Team-Data-Science/OceanBattery/releases/download/v0.1.0/OceanBatteryAPIWorker_dist_v0.1.0.tgz \
+ && curl -L -o /tmp/worker.tgz https://github.com/UG-Team-Data-Science/OceanBattery/releases/download/v${OB_WORKER_TAG}/OceanBatteryAPIWorker_dist_v${OB_WORKER_TAG}.tgz \
  && tar -xzf /tmp/worker.tgz -C /opt/oceanbattery \
  && if [ -d /opt/oceanbattery/dist ]; then mv /opt/oceanbattery/dist/* /opt/oceanbattery/ && rmdir /opt/oceanbattery/dist; fi \
  && rm -f /tmp/worker.tgz

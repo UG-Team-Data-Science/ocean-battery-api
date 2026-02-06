@@ -11,6 +11,8 @@ services:
   api:
     build:
       context: ./api
+      args:
+        OB_WORKER_TAG: "0.1.6-alpha"
     environment:
       - AGREE_TO_MATLAB_RUNTIME_LICENSE=yes
       - OB_CACHE_DIR=/data/cache
