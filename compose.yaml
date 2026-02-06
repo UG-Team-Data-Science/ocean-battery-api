@@ -19,7 +19,7 @@ services:
       - OB_OUT_DIR=/data/out
       - OB_ALIVE_DIR=/data/alive
       - OB_CACHE_DIR=/data/cache
-      - OB_CACHE_IDLE_TIMEOUT=30
+      - OB_CACHE_IDLE_TIMEOUT=60
     restart: unless-stopped
     volumes:
       - ./media/in:/data/in
