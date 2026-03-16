@@ -6,9 +6,14 @@ import "../../rug-huisstijl.css"
 import logo from "../../images/logo--en.png"
 import logo_only from "../../images/logo.gif"
 import { useOceanBattery } from '../../hooks/useOceanBattery';
+import {Home as HomeIcon} from "@mui/icons-material";
+import {useLocation} from "react-router-dom";
+
+import StopIcon from '@mui/icons-material/Stop';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 
 export function Header() {
-
+  const location = useLocation();
   const {
     tab,
     selectTab,
@@ -27,37 +32,33 @@ export function Header() {
       <Grid size={4}>
       </Grid>
     </Grid></Container></div>
-    <div key="second-top-bar" className="rug-bar white-red-bg">
+    <div key="second-top-bar" className="rug-bar">
       <Container maxWidth="xl" className="slash-bg"
-      style={{height: "100%", paddingLeft: "80px", color: "white", fontWeight: 900, paddingTop: "7px", flexDirection: "row", display: "flex", justifyContent: "space-between"}}>
-        <Box style={{flexGrow: 0, padding: 0, color: "white", paddingRight: "50px"}}>
-          Ocean Battery
-        </Box>
-        <Box style={{flexGrow: 1, padding: 0}}>
+                 style={{height: "100%", paddingLeft: "80px", color: "white", fontWeight: 900, flexDirection: "row",
+                         display: "flex", justifyContent: "space-between", padding: 0, maxWidth: "100%"}}>
+        <Box style={{flexGrow: 1, padding: 0, lineHeight: "50px", color: "white"}}>
+          <Link href={"/"} key="home-link" className={ location.pathname === "/" ? "active " : "" }>
+            <HomeIcon style={{marginTop: "5px", marginBottom: "-5px"}}/>
+          </Link>
           <Link key="overview" className={`${tab === 0 ? 'active ' : ""}`} onClick={() => selectTab(0)}>Overview</Link>
           <Link key="charging" className={`${tab === 1 ? 'active ' : ""}`} onClick={() => selectTab(1)}>Charging</Link>
-          <Link key="charging" className={`${tab === 2 ? 'active ' : ""}`} onClick={() => selectTab(2)}>Discharging</Link>
+          <Link key="discharging" className={`${tab === 2 ? 'active ' : ""}`} onClick={() => selectTab(2)}>Discharging</Link>
+          &nbsp;Ocean Battery
         </Box>
-        <Box style={{flexGrow: 0, padding: 0, display: "flex", alignItems: "center", gap: "10px"}}>
+        <Box style={{flexGrow: 0, padding: 0, lineHeight: "50px", color: "white"}}>
+          
           {busy === "simulate" && <CircularProgress size={18} color="inherit" />}
-          <Button
-            variant="contained" disabled={!!busy} onClick={computeKValues} size="small"
-            style={{height: "30px", marginRight: "10px"}}>
-            Compute K-values
-          </Button>
-          <Button
-            variant="contained"
-            disabled={busy !== "simulate"}
-            onClick={stopSimulationStream}
-            size="small"
-            style={{height: "30px"}}
-          >
-            Stop simulation
-          </Button>
-          <Button variant="contained" disabled={!!busy} onClick={startSimulationStream}  size="small"
-                  style={{height: "30px"}}>
-            Start simulation
-          </Button>
+          <Link onClick={!busy ? computeKValues : undefined} key="kvalues-link" sx={{ pointerEvents: busy ? "none" : "auto", color: busy ? "text.disabled" : "primary.main", cursor: busy ? "default" : "pointer", }} title="Compute k-values">
+            {'{}'}
+          </Link>
+          <Link onClick={busy === "simulate" ? stopSimulationStream : undefined} key="stop-link" sx={{ pointerEvents: busy ? "none" : "auto", color: busy ? "text.disabled" : "primary.main", cursor: busy ? "default" : "pointer", }} title="Stop simulation">
+            <StopIcon style={{marginTop: "5px", marginBottom: "-7px"}}/>
+          </Link>
+          <Link onClick={!busy ? startSimulationStream : undefined} key="start-link" sx={{ pointerEvents: busy ? "none" : "auto", color: busy ? "text.disabled" : "primary.main", cursor: busy ? "default" : "pointer", }} title="Start simulation">
+            <PlayArrowIcon style={{marginTop: "5px", marginBottom: "-7px"}}/>
+          </Link>
+          <Link href={"/privacy"} key="privacy-link" className={ location.pathname.startsWith("/privacy") ? "active " : "" }>Privacy</Link>
+          <Link href={"/eula"} key="eula-link" className={ location.pathname.startsWith("/eula") ? "active " : "" }>EULA</Link>
         </Box>
       </Container>
     </div>
